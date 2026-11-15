@@ -62,7 +62,7 @@ function advanceCycle(ms){
  }
 }
 let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=document.getElementById('clock'),statusEl=document.getElementById('status');function draw(){
- let ms=state.status==='running'?Math.max(0,(state.endAt||0)-now()):state.remainingMs??state.durationMs??300000;
+ let ms=state.status==='running'?Math.min(state.durationMs||300000,Math.max(0,(state.endAt||0)-now())):state.remainingMs??state.durationMs??300000;
  if(state.status==='break'){
   const sec=Math.max(0,Math.ceil(((state.breakEndAt||now())-now())/1000));
   clock.classList.add('break-clock');
