@@ -39,7 +39,7 @@ let lastMs=null, lastStatus='idle', announced={one:false,twenty:false,zero:false
 function checkAudio(ms){if(state.status==='running' && state.endAt!==lastCycleEndAt){lastCycleEndAt=state.endAt;announced={one:false,twenty:false,zero:false};if(lastStatus==='running' && lastMs!==null && lastMs<=0)lastMs=ms;}if(state.status==='idle'){announced={one:false,twenty:false,zero:false};lastMs=ms;lastStatus='idle';return;}
 if(state.status!=='running'){lastMs=ms;lastStatus=state.status;return;}
 if(lastStatus!=='running'){lastMs=ms;lastStatus='running';return;}
-if(lastMs!==null&&ms<lastMs){if(lastMs>60000&&ms<=60000&&!announced.one){announced.one=true;announce('one');}if(lastMs>20000&&ms<=20000&&!announced.twenty){announced.twenty=true;announce('twenty');}if(lastMs>0&&ms<=0&&!announced.zero){announced.zero=true;beep();}}
+if(lastMs!==null&&ms<lastMs){if(lastMs>62000&&ms<=62000&&!announced.one){announced.one=true;announce('one');}if(lastMs>22000&&ms<=22000&&!announced.twenty){announced.twenty=true;announce('twenty');}if(lastMs>0&&ms<=0&&!announced.zero){announced.zero=true;beep();}}
 lastMs=ms;lastStatus='running';}
 // Les transitions sont atomiques dans Firebase : plusieurs PC d'affichage peuvent rester ouverts.
 // 0:00 -> pause configurable -> nouveau cycle, sans conflit entre les PC.
