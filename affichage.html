@@ -4,19 +4,36 @@ firebase.initializeApp(firebaseConfig);const auth=firebase.auth(),db=firebase.da
 const fmt=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 
 // Le son est produit uniquement sur le PC d'affichage, jamais sur la commande.
-let soundEnabled=true, audioReady=false, audioContext=null, voice=null;
+let soundEnabled=true, audioReady=false, audioContext=null;
 const audioButton=document.getElementById('audioUnlock');
-function selectVoice(){const vs=window.speechSynthesis?.getVoices()||[];voice=vs.find(v=>v.lang==='en-GB'&&/natural|online|google|microsoft/i.test(v.name))||vs.find(v=>v.lang==='en-GB')||vs.find(v=>v.lang.startsWith('en'))||null;}
-if('speechSynthesis' in window){selectVoice();speechSynthesis.onvoiceschanged=selectVoice;}
-async function unlockAudio(){try{audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();await audioContext.resume();audioReady=true;audioButton.classList.add('hidden');}catch(e){audioButton.textContent='🔊 Réessayer le son';}}
+const announcementFiles={one:new Audio('annonce_1min.mp3'),twenty:new Audio('annonce_20s.mp3')};
+Object.values(announcementFiles).forEach(a=>{a.preload='auto';a.volume=1;});
+async function unlockAudio(){
+ try{
+  audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();
+  await audioContext.resume();
+  // Ce clic utilisateur autorise aussi la lecture des fichiers MP3 dans Edge.
+  for(const a of Object.values(announcementFiles)){
+   a.muted=true;
+   try{await a.play();a.pause();a.currentTime=0;}catch(e){console.warn('Audio MP3:',e);}
+   a.muted=false;
+  }
+  audioReady=true;audioButton.classList.add('hidden');
+ }catch(e){audioButton.textContent='🔊 Réessayer le son';console.error(e);}
+}
 audioButton.addEventListener('click',unlockAudio);
-function announce(text){if(!soundEnabled||!audioReady||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(text);u.lang=voice?.lang||'en-GB';if(voice)u.voice=voice;u.rate=.88;u.volume=1;speechSynthesis.cancel();speechSynthesis.speak(u);}
+function announce(which){
+ if(!soundEnabled||!audioReady)return;
+ const a=announcementFiles[which];if(!a)return;
+ a.pause();a.currentTime=0;
+ a.play().catch(e=>{console.error('Annonce impossible:',e);audioButton.textContent='🔊 Réactiver le son';audioButton.classList.remove('hidden');audioReady=false;});
+}
 function beep(){if(!soundEnabled||!audioReady||!audioContext)return;const t=audioContext.currentTime;[0,.22].forEach(delay=>{const o=audioContext.createOscillator(),g=audioContext.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,t+delay);g.gain.exponentialRampToValueAtTime(.28,t+delay+.015);g.gain.exponentialRampToValueAtTime(.0001,t+delay+.17);o.connect(g);g.connect(audioContext.destination);o.start(t+delay);o.stop(t+delay+.18);});}
 let lastMs=null, lastStatus='idle', announced={one:false,twenty:false,zero:false};
 function checkAudio(ms){if(state.status==='idle'){announced={one:false,twenty:false,zero:false};lastMs=ms;lastStatus='idle';return;}
 if(state.status!=='running'){lastMs=ms;lastStatus=state.status;return;}
 if(lastStatus!=='running'){lastMs=ms;lastStatus='running';return;}
-if(lastMs!==null&&ms<lastMs){if(lastMs>60000&&ms<=60000&&!announced.one){announced.one=true;announce('Next pilot in one minute.');}if(lastMs>20000&&ms<=20000&&!announced.twenty){announced.twenty=true;announce('Next pilot in twenty seconds.');}if(lastMs>0&&ms<=0&&!announced.zero){announced.zero=true;beep();}}
+if(lastMs!==null&&ms<lastMs){if(lastMs>60000&&ms<=60000&&!announced.one){announced.one=true;announce('one');}if(lastMs>20000&&ms<=20000&&!announced.twenty){announced.twenty=true;announce('twenty');}if(lastMs>0&&ms<=0&&!announced.zero){announced.zero=true;beep();}}
 lastMs=ms;lastStatus='running';}
-let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=document.getElementById('clock'),statusEl=document.getElementById('status');function draw(){let ms=state.status==='running'?Math.max(0,(state.endAt||0)-now()):state.remainingMs??state.durationMs??300000;clock.textContent=fmt(ms);checkAudio(ms);clock.classList.toggle('finished',state.status==='running'&&ms<=0)}setInterval(draw,100);draw();auth.signInAnonymously().then(()=>{db.ref('sessions/SIFM2026/soundEnabled').on('value',snap=>{soundEnabled=snap.val()!==false;if(!soundEnabled&&'speechSynthesis' in window)speechSynthesis.cancel();});stateRef.on('value',snap=>{if(snap.exists())state=snap.val();draw();statusEl.textContent='● Synchronisé';},err=>statusEl.textContent='Erreur : '+err.message);db.ref('.info/connected').on('value',s=>{statusEl.textContent=s.val()?'● Connecté':'○ Hors connexion'})}).catch(e=>statusEl.textContent='Erreur connexion : '+e.message);
+let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=document.getElementById('clock'),statusEl=document.getElementById('status');function draw(){let ms=state.status==='running'?Math.max(0,(state.endAt||0)-now()):state.remainingMs??state.durationMs??300000;clock.textContent=fmt(ms);checkAudio(ms);clock.classList.toggle('finished',state.status==='running'&&ms<=0)}setInterval(draw,100);draw();auth.signInAnonymously().then(()=>{db.ref('sessions/SIFM2026/soundEnabled').on('value',snap=>{soundEnabled=snap.val()!==false;if(!soundEnabled)Object.values(announcementFiles).forEach(a=>{a.pause();a.currentTime=0;});});stateRef.on('value',snap=>{if(snap.exists())state=snap.val();draw();statusEl.textContent='● Synchronisé';},err=>statusEl.textContent='Erreur : '+err.message);db.ref('.info/connected').on('value',s=>{statusEl.textContent=s.val()?'● Connecté':'○ Hors connexion'})}).catch(e=>statusEl.textContent='Erreur connexion : '+e.message);
 </script></body></html>
