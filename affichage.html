@@ -42,7 +42,7 @@ if(lastStatus!=='running'){lastMs=ms;lastStatus='running';return;}
 if(lastMs!==null&&ms<lastMs){if(lastMs>60000&&ms<=60000&&!announced.one){announced.one=true;announce('one');}if(lastMs>20000&&ms<=20000&&!announced.twenty){announced.twenty=true;announce('twenty');}if(lastMs>0&&ms<=0&&!announced.zero){announced.zero=true;beep();}}
 lastMs=ms;lastStatus='running';}
 // Les transitions sont atomiques dans Firebase : plusieurs PC d'affichage peuvent rester ouverts.
-// 0:00 -> pause de 5 secondes -> nouveau cycle, sans conflit entre les PC.
+// 0:00 -> pause configurable -> nouveau cycle, sans conflit entre les PC.
 function advanceCycle(ms){
  if(!autoRestart||restarting)return;
  const t=now();
@@ -50,7 +50,7 @@ function advanceCycle(ms){
   restarting=true;
   stateRef.transaction(s=>{
    if(!s||s.autoRestart!==true||s.status!=='running'||!s.endAt||s.endAt+300>now())return;
-   return {...s,status:'break',remainingMs:0,breakEndAt:s.endAt+5000};
+   const seconds=Number.isInteger(s.breakSeconds)?Math.max(0,Math.min(120,s.breakSeconds)):5;return seconds===0?{...s,status:'running',remainingMs:s.durationMs||300000,endAt:now()+(s.durationMs||300000),breakEndAt:null}:{...s,status:'break',remainingMs:0,breakEndAt:s.endAt+seconds*1000};
   },err=>{restarting=false;if(err)console.error('Pause automatique :',err);},false);
  }else if(state.status==='break' && t>=(state.breakEndAt||0)){
   restarting=true;
@@ -66,7 +66,7 @@ let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=docum
  if(state.status==='break'){
   const sec=Math.max(0,Math.ceil(((state.breakEndAt||now())-now())/1000));
   clock.classList.add('break-clock');
-  clock.innerHTML='BREAK — 5 SECONDS<span class="break-number">'+sec+'</span>';
+  const total=Number.isInteger(state.breakSeconds)?Math.max(0,Math.min(120,state.breakSeconds)):5;clock.innerHTML='BREAK — '+total+' '+(total===1?'SECOND':'SECONDS')+'<span class="break-number">'+sec+'</span>';
  }else{
   clock.classList.remove('break-clock');
   clock.textContent=fmt(ms);
