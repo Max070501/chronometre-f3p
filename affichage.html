@@ -4,10 +4,10 @@ firebase.initializeApp(firebaseConfig);const auth=firebase.auth(),db=firebase.da
 const fmt=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 
 // Le son est produit uniquement sur le PC d'affichage, jamais sur la commande.
-let soundEnabled=true, autoRestart=false, audioReady=false, audioContext=null;
+let soundEnabled=true, autoRestart=false, audioReady=false, audioContext=null, announcementLanguage='EN';
 const audioButton=document.getElementById('audioUnlock');
-const announcementFiles={one:new Audio('annonce_1min.mp3'),twenty:new Audio('annonce_20s.mp3')};
-Object.values(announcementFiles).forEach(a=>{a.preload='auto';a.volume=1;});
+const announcementFiles={EN:{one:new Audio('annonce_1min.mp3'),twenty:new Audio('annonce_20s.mp3')},FR:{one:new Audio('annonce_1min_fr.mp3'),twenty:new Audio('annonce_20s_fr.mp3')}};
+Object.values(announcementFiles).flatMap(group=>Object.values(group)).forEach(a=>{a.preload='auto';a.volume=1;});
 function audioInfo(t){console.info('[Audio SIFM]',t);}
 async function unlockAudio(){
  try{
@@ -21,13 +21,13 @@ audioButton.addEventListener('click',unlockAudio);
 async function playAnnouncement(which,manual=false){
  if(!manual&&(!soundEnabled||!audioReady))return;
  if(manual&&!soundEnabled){audioInfo('Son désactivé dans les paramètres avancés de la commande.');return;}
- const a=announcementFiles[which];if(!a)return;
+ const a=announcementFiles[announcementLanguage][which];if(!a)return;
  try{
   a.pause();a.currentTime=0;
   await a.play();
   audioInfo(manual?'Annonce de test en lecture.':'Annonce '+(which==='one'?'1 minute':'20 secondes')+' déclenchée.');
  }catch(e){
-  audioInfo('Lecture impossible : '+e.message+' — Vérifiez que annonce_1min.mp3 et annonce_20s.mp3 sont sur GitHub.');
+  audioInfo('Lecture impossible : '+e.message+' — Vérifiez que les fichiers MP3 de la langue sélectionnée sont sur GitHub.');
   console.error('Annonce impossible:',e);
   if(!manual){audioButton.textContent='🔊 Réactiver le son';audioButton.classList.remove('hidden');audioReady=false;}
  }
@@ -75,5 +75,5 @@ let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=docum
  advanceCycle(ms);
  clock.classList.toggle('finished',state.status==='running'&&ms<=0);
 }
-setInterval(draw,100);draw();auth.signInAnonymously().then(()=>{stateRef.on('value',snap=>{if(snap.exists()){state=snap.val();autoRestart=state.autoRestart===true;const wasSoundEnabled=soundEnabled;soundEnabled=state.soundEnabled!==false;if(wasSoundEnabled&&!soundEnabled)Object.values(announcementFiles).forEach(a=>{a.pause();a.currentTime=0;});}draw();statusEl.textContent='● Synchronisé';},err=>statusEl.textContent='Erreur : '+err.message);db.ref('.info/connected').on('value',s=>{statusEl.textContent=s.val()?'● Connecté':'○ Hors connexion'})}).catch(e=>statusEl.textContent='Erreur connexion : '+e.message);
+setInterval(draw,100);draw();auth.signInAnonymously().then(()=>{stateRef.on('value',snap=>{if(snap.exists()){state=snap.val();autoRestart=state.autoRestart===true;const nextLanguage=state.announcementLanguage==='FR'?'FR':'EN';if(nextLanguage!==announcementLanguage){Object.values(announcementFiles).flatMap(group=>Object.values(group)).forEach(a=>{a.pause();a.currentTime=0;});announcementLanguage=nextLanguage;}const wasSoundEnabled=soundEnabled;soundEnabled=state.soundEnabled!==false;if(wasSoundEnabled&&!soundEnabled)Object.values(announcementFiles).flatMap(group=>Object.values(group)).forEach(a=>{a.pause();a.currentTime=0;});}draw();statusEl.textContent='● Synchronisé';},err=>statusEl.textContent='Erreur : '+err.message);db.ref('.info/connected').on('value',s=>{statusEl.textContent=s.val()?'● Connecté':'○ Hors connexion'})}).catch(e=>statusEl.textContent='Erreur connexion : '+e.message);
 </script></body></html>
