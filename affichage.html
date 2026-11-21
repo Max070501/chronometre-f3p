@@ -50,26 +50,26 @@ function advanceCycle(ms){
   restarting=true;
   stateRef.transaction(s=>{
    if(!s||s.autoRestart!==true||s.status!=='running'||!s.endAt||s.endAt+300>now())return;
-   const seconds=Number.isInteger(s.breakSeconds)?Math.max(0,Math.min(120,s.breakSeconds)):5;return seconds===0?{...s,status:'running',remainingMs:s.durationMs||300000,endAt:now()+(s.durationMs||300000),breakEndAt:null}:{...s,status:'break',remainingMs:0,breakEndAt:s.endAt+seconds*1000};
+   const seconds=Number.isInteger(s.breakSeconds)?Math.max(0,Math.min(120,s.breakSeconds)):5;return seconds===0?{...s,status:'running',remainingMs:s.timerMode==='up'?0:(s.durationMs||300000),endAt:now()+(s.durationMs||300000),breakEndAt:null}:{...s,status:'break',remainingMs:0,breakEndAt:s.endAt+seconds*1000};
   },err=>{restarting=false;if(err)console.error('Pause automatique :',err);},false);
  }else if(state.status==='break' && t>=(state.breakEndAt||0)){
   restarting=true;
   stateRef.transaction(s=>{
    if(!s||s.status!=='break'||!s.breakEndAt||s.breakEndAt>now())return;
    const duration=s.durationMs||300000;
-   return {...s,status:'running',remainingMs:duration,endAt:now()+duration,breakEndAt:null};
+   return {...s,status:'running',remainingMs:s.timerMode==='up'?0:duration,endAt:now()+duration,breakEndAt:null};
   },err=>{restarting=false;if(err)console.error('Relance automatique :',err);},false);
  }
 }
 let state={durationMs:300000,remainingMs:300000,status:'idle'};const clock=document.getElementById('clock'),statusEl=document.getElementById('status');function draw(){
- let ms=state.status==='running'?Math.min(state.durationMs||300000,Math.max(0,(state.endAt||0)-now())):state.remainingMs??state.durationMs??300000;
+ let up=state.timerMode==='up',duration=state.durationMs||300000;let ms=state.status==='running'?Math.min(duration,Math.max(0,(state.endAt||0)-now())):(up?Math.max(0,duration-(state.remainingMs??0)):(state.remainingMs??duration));let shown=up?Math.min(duration,Math.max(0,duration-ms)):ms;
  if(state.status==='break'){
   const sec=Math.max(0,Math.ceil(((state.breakEndAt||now())-now())/1000));
   clock.classList.add('break-clock');
   const total=Number.isInteger(state.breakSeconds)?Math.max(0,Math.min(120,state.breakSeconds)):5;clock.innerHTML='BREAK — '+total+' '+(total===1?'SECOND':'SECONDS')+'<span class="break-number">'+sec+'</span>';
  }else{
   clock.classList.remove('break-clock');
-  clock.textContent=fmt(ms);
+  clock.textContent=fmt(shown);
  }
  checkAudio(ms);
  advanceCycle(ms);
